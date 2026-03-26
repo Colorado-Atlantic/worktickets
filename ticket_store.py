@@ -93,10 +93,12 @@ class TicketStore:
                 ticket_count = cursor.execute('SELECT COUNT(*) FROM tickets').fetchone()[0]
                 backlog_count = cursor.execute('SELECT COUNT(*) FROM backlog_items').fetchone()[0]
                 if ticket_count == 0 and backlog_count > 0:
-                    cursor.execute('''
-                        INSERT INTO tickets
-                        SELECT * FROM backlog_items
-                    ''')
+                    # Select only columns that exist in tickets table
+                    tickets_cols = [row[1] for row in cursor.execute('PRAGMA table_info(tickets)').fetchall()]
+                    backlog_cols = {row[1] for row in cursor.execute('PRAGMA table_info(backlog_items)').fetchall()}
+                    shared_cols = [c for c in tickets_cols if c in backlog_cols]
+                    cols = ', '.join(shared_cols)
+                    cursor.execute(f'INSERT INTO tickets ({cols}) SELECT {cols} FROM backlog_items')
 
             # Migrate existing databases: add columns if missing
             existing_cols = {row[1] for row in cursor.execute('PRAGMA table_info(tickets)').fetchall()}
