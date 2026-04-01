@@ -17,6 +17,7 @@ from contextlib import contextmanager
 VALID_STATUSES = ('open', 'in_progress', 'review', 'live_testing', 'tabled', 'completed', 'cancelled')
 VALID_PRIORITIES = ('P1', 'P2', 'P3')
 VALID_CATEGORIES = ('bug', 'discovery', 'enhancement', 'feature', 'infrastructure')
+VALID_WORK_MODES = ('AFK', 'HITL')
 
 # Default DB location — user-scoped, project-independent
 DEFAULT_DB_PATH = Path.home() / '.tickets' / 'tickets.db'
@@ -77,6 +78,8 @@ class TicketStore:
                     parent_id INTEGER DEFAULT NULL,
                     spec_path TEXT DEFAULT '',
                     sort_order INTEGER DEFAULT 0,
+                    work_mode TEXT DEFAULT NULL,
+                    acceptance_criteria TEXT DEFAULT '',
                     notes TEXT DEFAULT '',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -106,6 +109,10 @@ class TicketStore:
                 cursor.execute('ALTER TABLE tickets ADD COLUMN parent_id INTEGER DEFAULT NULL REFERENCES tickets(id) ON DELETE SET NULL')
             if 'spec_path' not in existing_cols:
                 cursor.execute("ALTER TABLE tickets ADD COLUMN spec_path TEXT DEFAULT ''")
+            if 'work_mode' not in existing_cols:
+                cursor.execute("ALTER TABLE tickets ADD COLUMN work_mode TEXT DEFAULT NULL")
+            if 'acceptance_criteria' not in existing_cols:
+                cursor.execute("ALTER TABLE tickets ADD COLUMN acceptance_criteria TEXT DEFAULT ''")
 
             # Indexes for common queries
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)')
@@ -134,6 +141,9 @@ class TicketStore:
         category = data.get('category', 'feature')
         if category not in VALID_CATEGORIES:
             raise ValueError(f"Invalid category '{category}'. Must be one of: {', '.join(VALID_CATEGORIES)}")
+        work_mode = data.get('work_mode')
+        if work_mode is not None and work_mode not in VALID_WORK_MODES:
+            raise ValueError(f"Invalid work_mode '{work_mode}'. Must be one of: {', '.join(VALID_WORK_MODES)}")
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -148,9 +158,9 @@ class TicketStore:
             cursor.execute('''
                 INSERT INTO tickets
                 (title, description, priority, status, category, branch,
-                 depends_on, parent_id, spec_path, sort_order, notes,
-                 created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 depends_on, parent_id, spec_path, sort_order, work_mode,
+                 acceptance_criteria, notes, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 data.get('title', ''),
                 data.get('description', ''),
@@ -162,6 +172,8 @@ class TicketStore:
                 data.get('parent_id'),
                 data.get('spec_path', ''),
                 data.get('sort_order', next_order),
+                data.get('work_mode'),
+                data.get('acceptance_criteria', ''),
                 data.get('notes', ''),
                 now,
                 now,
@@ -289,7 +301,7 @@ class TicketStore:
         allowed_fields = {
             'title', 'description', 'priority', 'status', 'category',
             'branch', 'depends_on', 'parent_id', 'spec_path', 'sort_order',
-            'notes'
+            'work_mode', 'acceptance_criteria', 'notes'
         }
 
         if 'status' in data and data['status'] not in VALID_STATUSES:
@@ -298,6 +310,8 @@ class TicketStore:
             raise ValueError(f"Invalid priority '{data['priority']}'. Must be one of: {', '.join(VALID_PRIORITIES)}")
         if 'category' in data and data['category'] not in VALID_CATEGORIES:
             raise ValueError(f"Invalid category '{data['category']}'. Must be one of: {', '.join(VALID_CATEGORIES)}")
+        if 'work_mode' in data and data['work_mode'] is not None and data['work_mode'] not in VALID_WORK_MODES:
+            raise ValueError(f"Invalid work_mode '{data['work_mode']}'. Must be one of: {', '.join(VALID_WORK_MODES)}")
 
         with self._get_connection() as conn:
             cursor = conn.cursor()

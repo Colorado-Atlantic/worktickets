@@ -1,0 +1,21 @@
+# Flask and web server (needed to run app for smoke tests)
+Flask>=3.0.0
+waitress>=2.1.2
+
+# Date utilities
+python-dateutil>=2.8.2
+
+# Excel parsing
+openpyxl>=3.1.2
+
+# PDF extraction (PO parsing)
+pdfplumber>=0.11.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Background scheduling
+APScheduler>=3.10.4
+
+# Testing
+pytest>=7.4.3
